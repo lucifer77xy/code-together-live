@@ -1,0 +1,182 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                   String          @id @default(uuid())
+  githubId             String?         @unique
+  email                String?         @unique
+  name                 String
+  username             String          @unique
+  avatar               String?
+  bio                  String?
+  streakDays           Int             @default(0)
+  totalHours           Float           @default(0)
+  totalProblems        Int             @default(0)
+  lastLoginAt          DateTime        @default(now())
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  duoAsPartner1        Duo[]           @relation("DuoPartner1")
+  duoAsPartner2        Duo[]           @relation("DuoPartner2")
+
+  tasksCreated         Task[]          @relation("TaskCreator")
+  tasksAssigned        Task[]          @relation("TaskAssignee")
+  taskActivities       TaskActivity[]
+  codingLogs           CodingLog[]
+  notificationsReceived Notification[] @relation("Recipient")
+  notificationsSent    Notification[]  @relation("Sender")
+  achievements         Achievement[]
+  analytics            Analytics[]
+  inviteLinks          InviteLink[]
+}
+
+model Duo {
+  id           String         @id @default(uuid())
+  code         String         @unique
+  partner1Id   String
+  partner2Id   String?
+  status       String         @default("ACTIVE")
+  coupleScore  Int            @default(0)
+  streakDays   Int            @default(0)
+  connectedAt  DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  partner1     User           @relation("DuoPartner1", fields: [partner1Id], references: [id])
+  partner2     User?          @relation("DuoPartner2", fields: [partner2Id], references: [id])
+  tasks        Task[]
+  codingLogs   CodingLog[]
+  notifications Notification[]
+  analytics    Analytics[]
+}
+
+model Task {
+  id               String         @id @default(uuid())
+  duoId            String
+  creatorId        String
+  assignedToId     String?
+  title            String
+  description      String?
+  priority         String         @default("MEDIUM")
+  category         String         @default("DEVELOPMENT")
+  status           String         @default("TODO")
+  estimatedMinutes Int?
+  actualMinutes    Int?
+  completedAt      DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  duo              Duo            @relation(fields: [duoId], references: [id], onDelete: Cascade)
+  creator          User           @relation("TaskCreator", fields: [creatorId], references: [id])
+  assignedTo       User?          @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  activities       TaskActivity[]
+}
+
+model TaskActivity {
+  id        String   @id @default(uuid())
+  taskId    String
+  userId    String
+  action    String
+  details   String?
+  timestamp DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model CodingLog {
+  id             String   @id @default(uuid())
+  userId         String
+  duoId          String
+  date           String
+  hoursStudied   Float
+  problemsSolved Int      @default(0)
+  notes          String?
+  summary        String?
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id])
+  duo            Duo      @relation(fields: [duoId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  duoId       String?
+  recipientId String
+  senderId    String?
+  type        String
+  title       String
+  message     String
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  recipient   User     @relation("Recipient", fields: [recipientId], references: [id])
+  sender      User?    @relation("Sender", fields: [senderId], references: [id])
+  duo         Duo?     @relation(fields: [duoId], references: [id], onDelete: Cascade)
+}
+
+model Achievement {
+  id          String   @id @default(uuid())
+  userId      String
+  badgeKey    String
+  title       String
+  description String
+  icon        String
+  unlockedAt  DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model Analytics {
+  id                  String   @id @default(uuid())
+  userId              String?
+  duoId               String
+  period              String   @default("DAILY")
+  focusScore          Int      @default(85)
+  disciplineScore     Int      @default(88)
+  consistencyScore    Int      @default(90)
+  timeEfficiencyScore Int      @default(82)
+  productivityScore   Int      @default(86)
+  insightsJson        String
+  generatedAt         DateTime @default(now())
+
+  user                User?    @relation(fields: [userId], references: [id])
+  duo                 Duo      @relation(fields: [duoId], references: [id], onDelete: Cascade)
+}
+
+model Motivation {
+  id               String   @id @default(uuid())
+  quote            String
+  author           String?
+  coupleMotivation String
+  challenge        String
+  date             String
+  createdAt        DateTime @default(now())
+}
+
+model JokeHistory {
+  id        String   @id @default(uuid())
+  setup     String
+  punchline String
+  category  String   @default("CODING")
+  likes     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model InviteLink {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  creatorId String
+  duoId     String?
+  isUsed    Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  creator   User     @relation(fields: [creatorId], references: [id])
+}
